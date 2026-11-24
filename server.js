@@ -1,4 +1,3 @@
-
 import express from "express";
 import cors from "cors";
 import { rateLimit } from "express-rate-limit";
@@ -26,6 +25,35 @@ Reject unrelated questions politely.
 Give safe advice. Never encourage training through pain.
 `;
 
+const MODELS = ["gemini-3.8-flash", "gemini-2.5-flash"];
+
+function isHighDemandError(err) {
+  const text = `${err?.status ?? ""} ${err?.message ?? ""}`;
+  return text.includes("503") || text.toLowerCase().includes("high demand") || text.toLowerCase().includes("unavailable");
+}
+
+async function generateFootballReply(question) {
+  for (const model of MODELS) {
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        return await ai.models.generateContent({
+          model,
+          contents: question,
+          config: { systemInstruction: rules }
+        });
+      } catch (err) {
+        if (!isHighDemandError(err)) {
+          throw err;
+        }
+        if (attempt < 3) {
+          await new Promise((resolve) => setTimeout(resolve, attempt * 1500));
+        }
+      }
+    }
+  }
+  throw new Error("503 UNAVAILABLE after retries");
+}
+
 app.get("/", (req, res) => {
   res.send("FOOTBALLER AI is running!");
 });
@@ -41,11 +69,7 @@ app.post("/api/chat", async (req, res) => {
       });
     }
 
-    const result = await ai.models.generateContent({
-      model:  "gemini-3.8-flash",
-      contents: question,
-      config: { systemInstruction: rules }
-    });
+    const result = await generateFootballReply(question);
 
     res.json({ reply: result.text });
   } catch (error) {
