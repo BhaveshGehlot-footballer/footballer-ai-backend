@@ -42,7 +42,7 @@ app.post("/api/chat", async (req, res) => {
     }
 
     const result = await ai.models.generateContent({
-      model: "model: "gemini-3.8-flash",
+      model:  "gemini-3.8-flash",
       contents: question,
       config: { systemInstruction: rules }
     });
